@@ -8,7 +8,7 @@ const dbConnect = async () => {
     );
 
     console.log(
-      `/n MongoDB Connected and Database Hosted on :: ${connectionInstance.connection.host} URL`
+      `MongoDB Connected and Database Hosted on :: ${connectionInstance.connection.host}`
     );
   } catch (error) {
     console.log("MongoDB Error ::", error);
