@@ -10,6 +10,7 @@ const generateAccessAndRefreshToken = async (userId) => {
     const user = await User.findById(userId);
     const accessToken = await user.generateAccessToken();
     const refreshToken = await user.generateRefreshToken();
+    //console.log(accessToken, refreshToken);
 
     // * Add the refresh token in the database
     user.refreshToken = refreshToken;
@@ -118,34 +119,34 @@ const loginUser = asyncHandler(async (req, res) => {
   const { userName, email, password } = req.body;
 
   // ! 2. Check if username or email is available or not
-  if (!userName || !email) {
+  if (!(userName || email)) {
     throw new ApiError(400, "Username or Email is Required !");
   }
 
   // * 3. Find the Username or Email in the database
-  const registeredUser = await User.findOne({
+  const user = await User.findOne({
     $or: [{ email }, { userName }],
   });
 
   // ! 4. Check if user data is available or not in the database
-  if (!registeredUser) {
+  if (!user) {
     throw new ApiError(404, "User Not Found !");
   }
 
   // ! 5. Check the password of the user
-  const isPasswordValid = await registeredUser.isPsswordCorrect(password);
+  const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
     throw new ApiError(401, "Inavlid Login Credentials ! ");
   }
 
   // * 6 Call the Refresh and Access Token from the above method
-  const { accessToken, refreshToken } = generateAccessAndRefreshToken(
-    registeredUser._id
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
   );
 
   // * 7 Remove the fields from the Response
-  const loggedInUser = User.findById(registeredUser._id).select(
+  const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
 
@@ -158,18 +159,14 @@ const loginUser = asyncHandler(async (req, res) => {
   // * 9. Send the Response to the User
   return res
     .status(200)
-    .cookie("refreshToken", refreshToken, cookieOptions)
     .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
-      new ApiResponse(
-        200,
-        {
-          user: loggedInUser,
-          refreshToken,
-          accessToken,
-        },
-        "User Logged In Successfully !"
-      )
+      new ApiResponse(200, "User Logged In Successfully !", {
+        user: loggedInUser,
+        accessToken,
+        refreshToken,
+      })
     );
 });
 
@@ -200,7 +197,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     .status(200)
     .clearCookie("accessToken", cookieOptions)
     .clearCookie("refreshToken", cookieOptions)
-    .json(200, {}, "User Logged Out Successfully !");
+    .json(new ApiResponse(200, "User Logged Out Successfully", {}));
 });
 
 export { registerUser, loginUser, logoutUser };
