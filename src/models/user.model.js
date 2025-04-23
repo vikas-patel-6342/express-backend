@@ -48,7 +48,7 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
-// Password Encryption
+// * Password Encryption
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
@@ -57,12 +57,12 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-// Password Decryption
+// * Password Decryption
 userSchema.methods.isPsswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-// Refresh Token Generate
+// * Refresh Token Generate
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
@@ -79,7 +79,7 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
-// Acsess token Generator
+// * Acsess token Generator
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
