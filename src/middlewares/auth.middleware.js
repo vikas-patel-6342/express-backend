@@ -18,6 +18,7 @@ export const verifyJWT = asyncHandler((req, res, next) => {
     // * If token is Available decode the token using JWT
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
+    // ! Remove the Refresh Token and Password from the response
     const user = User.findById(decodedToken._id).select(
       "-password -refreshToken"
     );

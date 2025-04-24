@@ -3,17 +3,24 @@ import { ApiError } from "../utils/apiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import jwt from "jsonwebtoken";
 
-// ! Generate Access and Refresh Toke
+// ? Cookies Options
+const cookieOptions = {
+  httpOnly: true,
+  secure: true, // ! Only Accessable and Changeble By Server
+};
+
+// ? Generate Access and Refresh Toke
 const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
     const accessToken = await user.generateAccessToken();
     const refreshToken = await user.generateRefreshToken();
-    //console.log(accessToken, refreshToken);
 
-    // * Add the refresh token in the database
+    // * Add and Save the refresh token in the database
     user.refreshToken = refreshToken;
+    // * Save
     await user.save({ validateBeforeSave: false });
 
     // * Return the Access and Refresh Token
@@ -27,11 +34,11 @@ const generateAccessAndRefreshToken = async (userId) => {
   }
 };
 
-// ! Register User
+// ? Register User
 const registerUser = asyncHandler(async (req, res) => {
   //  Steps for Registering New User
 
-  // * 1. Get User Data form Frontend
+  // * 1. Get User Data form Frontend / User
   const { userName, email, fullName, password } = req.body; // ! JSON data or form data will be handle with req.body
 
   // * 2. Not Empty and correct email validation to be applied
@@ -54,13 +61,14 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (existingUser) {
-    throw new ApiError(409, "Username and Email Already exist !");
+    throw new ApiError(409, "Username or Email Already exist !");
   }
 
   // * 4. Files are avilable or not. => (Avatar Image and CoverImage)
   const avatarLocalPath = req.files?.avatar[0]?.path;
   //  const coverImageLocalPath = req.files?.coverIamge[0]?.path;
 
+  // ! If Cover Image is Available or Not Available
   let coverImageLocalPath;
   if (
     req.files &&
@@ -94,11 +102,12 @@ const registerUser = asyncHandler(async (req, res) => {
     coverImage: coverImage?.url || "",
   });
 
-  // ! Check if user is created or not
+  // ! Remove the password and refresh token fields from the Response
   const createdUser = await User.findById(newUser._id).select(
     "-password -refreshToken"
   );
 
+  // ! Check if user is created or not
   if (!createdUser) {
     throw new ApiError(500, "Something went wrong while creating a User !");
   }
@@ -111,7 +120,7 @@ const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
-// ! Login User
+// ? Login User
 const loginUser = asyncHandler(async (req, res) => {
   // Steps for User Login
 
@@ -145,18 +154,12 @@ const loginUser = asyncHandler(async (req, res) => {
     user._id
   );
 
-  // * 7 Remove the fields from the Response
+  // * 7 Remove the Password and Refresh Token from the Response
   const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
 
-  // * 8 Send the data in the cookies
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true, // ! Only Accessable and Changeble By Server
-  };
-
-  // * 9. Send the Response to the User
+  // * 8. Send the Response to the User
   return res
     .status(200)
     .cookie("accessToken", accessToken, cookieOptions)
@@ -170,6 +173,7 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
+// ? Logout User
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     // * Find the user Using req.user / "Auth" middleware
@@ -186,12 +190,6 @@ const logoutUser = asyncHandler(async (req, res) => {
     }
   );
 
-  // * Cookie Options
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true,
-  };
-
   // * Return the response and Clear theCookies
   return res
     .status(200)
@@ -200,4 +198,61 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "User Logged Out Successfully", {}));
 });
 
-export { registerUser, loginUser, logoutUser };
+// ? Refresh the Access Token
+const refreshAccesssToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  // ! Check if Refresh token is coming or not
+  if (!incomingRefreshToken) {
+    throw new ApiError(400, "Unauthorized User !");
+  }
+
+  try {
+    // * Decode the Incoming Refresh Token
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    // * Find the User using Decoded Token from the database
+    const user = await User.findById(decodedToken?._id);
+
+    // ! Check if User is available or Not
+    if (!user) {
+      throw new ApiError(401, "Inavlid Refresh Token");
+    }
+
+    // ! Match the incoming Refresh token and Refresh token from Database
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new ApiError(401, "Refresh Token is Expired !");
+    }
+
+    // * Generate the Access and refresh Token
+    const { accessToken, newRefreshToken } = generateAccessAndRefreshToken(
+      user._id
+    );
+
+    // * Cookie Options
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    // * Return the Response
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", newRefreshToken, cookieOptions)
+      .json(
+        new ApiResponse(200, "Access Token Refreshed Successfully !", {
+          accessToken,
+          refreshToken: newRefreshToken,
+        })
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh Token !");
+  }
+});
+
+export { registerUser, loginUser, logoutUser, refreshAccesssToken };
