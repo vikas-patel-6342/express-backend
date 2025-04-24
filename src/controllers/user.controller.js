@@ -11,7 +11,7 @@ const cookieOptions = {
   secure: true, // ! Only Accessable and Changeble By Server
 };
 
-// ? Generate Access and Refresh Toke
+// ? Generate Access and Refresh Token
 const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
