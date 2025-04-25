@@ -99,7 +99,7 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     avatar: avatar.url,
-    coverImage: coverImage?.url || "",
+    coverImage: coverImage?.url || "Cover Image Not Uploaded !",
   });
 
   // ! Remove the password and refresh token fields from the Response
@@ -232,12 +232,6 @@ const refreshAccesssToken = asyncHandler(async (req, res) => {
     const { accessToken, newRefreshToken } = generateAccessAndRefreshToken(
       user._id
     );
-
-    // * Cookie Options
-    const cookieOptions = {
-      httpOnly: true,
-      secure: true,
-    };
 
     // * Return the Response
     return res
