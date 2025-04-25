@@ -255,4 +255,146 @@ const refreshAccesssToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccesssToken };
+// ? Update User Password
+const updateUserPassword = asyncHandler(async (req, res) => {
+  // * Find the User using JWT Middleware
+  const user = await User.findById(req.user?._id);
+
+  // * Get Old Password and New Password from User
+  const { oldPassword, newPassword } = req.body;
+
+  // ! Check if old password is correct or not
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(400, "Invalid Old Password");
+  }
+
+  // * Add the new password
+  user.password = newPassword;
+
+  // * Save Password to the database
+  await user.save({ validateBeforeSave: false });
+
+  // * Return the response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Password Updated Successfully !", {}));
+});
+
+// ? Get Current User
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Current User Fetched Successfylly", req.user));
+});
+
+// ? Update User Details
+const updateUserDetails = asyncHandler(async (req, res) => {
+  // * Get the data from the user
+  const { fullName, email } = req.body;
+
+  // ! Check User enters the email or fullname
+  if (!fullName || !email) {
+    throw new ApiError(400, "All fields are required !");
+  }
+
+  // * Find the User details from the database using JWT
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    // * Update the User Details
+    {
+      $set: { fullName, email },
+    },
+    // * Get the Updated information in the response
+    { new: true }
+  ).select("-password");
+
+  // * Return the Response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User Data Updated Successfully !", {}));
+});
+
+// ? Avatart Image Update
+const updateAvatarImage = asyncHandler(async (req, res) => {
+  // * Get the file from User using Multer Middleware
+  const avatarLocalPath = await req.file?.path;
+
+  // ! Check Avatar Image is available or Not
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar Image is Missing !");
+  }
+
+  // * Upload Avatar image on cloudinary
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  // ! Check the image is uploaded on cloudinary or not
+  if (!avatar.url) {
+    throw new ApiError(400, "There is problem in updating Avatar Image !");
+  }
+
+  // * Update the Avatar Image in the database
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        // * Update Avatar url
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  // * Return the Response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Avatar Image Updated Successfully !", user));
+});
+
+// ? Cover Image Update
+const updateCoverImage = asyncHandler(async (req, res) => {
+  // * Get the file from User using Multer Middleware
+  const coverImageLocalPath = await req.file?.path;
+
+  // ! Check Cover Image is available or Not
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "Cover Image is Missing !");
+  }
+
+  // * Upload Cover image on cloudinary
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  // ! Check the image is uploaded on cloudinary or not
+  if (!coverImage.url) {
+    throw new ApiError(400, "There is problem in updating Cover Image !");
+  }
+
+  // * Update the Cover Image in the database
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        // * Update Avatar url
+        coverImage: coverImage.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  // * Return the Response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Cover Image Updated Successfully !", user));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccesssToken,
+  updateUserPassword,
+  getCurrentUser,
+  updateUserDetails,
+  updateCoverImage,
+};
