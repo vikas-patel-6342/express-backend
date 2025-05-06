@@ -54,7 +54,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please Enter Correct Email Address !");
   }
 
-  // * 3. Check if user is already exist or not using => {Email and Username}
+  // * 3. Check if user is already exist or not using => {Email or Username}
 
   const existingUser = await User.findOne({
     $or: [{ userName }, { email }],
@@ -382,6 +382,147 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Cover Image Updated Successfully !", user));
 });
 
+// ? Get the Channel Profile
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  // * Get the user from the url
+  const { userName } = req.params;
+
+  // ! Check if username is available or not
+  if (!userName?.trim()) {
+    throw new ApiError(400, "User is Missing ?");
+  }
+
+  // * Use Aggregation Pipeline
+  const channel = await User.aggregate([
+    // * Match the Username
+    {
+      $match: {
+        userName: userName?.toLowerCase(),
+      },
+    },
+    // * Find the Subscriber of the User
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    // * Find how many channels are subscribed by user
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    // * Add fields in the User Model
+    {
+      $addFields: {
+        // * Add count of Subscribers in the user Model
+        subscriberCount: {
+          $size: "$subscribers",
+        },
+        // * Add count of channel subscribed by user in the user model
+        channelSubscribedToCount: {
+          $size: "$subscribedTo",
+        },
+
+        // * Find that the channel is subscribed or not
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.body.user?._id, "$subscribers.subscribe"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+
+    // * Send the data
+    {
+      $project: {
+        fullName: 1,
+        userName: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscriberCount: 1,
+        channelSubscribedToCount: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+
+  console.log(channel);
+
+  // ! Check if channel is available or not
+  if (!channel?.length) {
+    throw new ApiError(404, "Channel Not Found !");
+  }
+
+  // * Return the response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Channel Fetched Successfully", channel[0]));
+});
+
+// * Get User Watch History
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "Watch history fetched successfully"
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -390,5 +531,7 @@ export {
   updateUserPassword,
   getCurrentUser,
   updateUserDetails,
+  updateAvatarImage,
   updateCoverImage,
+  getUserChannelProfile,
 };
