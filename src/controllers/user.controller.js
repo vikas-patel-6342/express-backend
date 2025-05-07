@@ -278,7 +278,7 @@ const updateUserPassword = asyncHandler(async (req, res) => {
 
 // ? Get Current User
 const getCurrentUser = asyncHandler(async (req, res) => {
-  console.log(req.user.fullName);
+  // console.log(req.user);
 
   return res
     .status(200)
@@ -291,7 +291,7 @@ const updateUserDetails = asyncHandler(async (req, res) => {
   const { fullName, email } = req.body;
 
   // ! Check User enters the email or fullname
-  if (!fullName || !email) {
+  if (!(fullName || email)) {
     throw new ApiError(400, "All fields are required !");
   }
 
@@ -309,7 +309,7 @@ const updateUserDetails = asyncHandler(async (req, res) => {
   // * Return the Response
   return res
     .status(200)
-    .json(new ApiResponse(200, "User Data Updated Successfully !", {}));
+    .json(new ApiResponse(200, "User Data Updated Successfully !", req.user));
 });
 
 // ? Avatart Image Update

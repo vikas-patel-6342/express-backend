@@ -21,6 +21,7 @@ const router = Router();
 router.route("/register").post(
   // ! Apply the multer middleware
   upload.fields([
+    // ? Fields is for multiple files
     { name: "avatar", maxCount: 1 },
     { name: "coverImage", maxCount: 1 },
   ]),
@@ -44,12 +45,12 @@ router.route("/change-password").post(verifyJWT, updateUserPassword);
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 
 // * Update User Route
-router.route("/update-user").patch(verifyJWT, updateUserDetails); // * By using patch methode only updated the details which user updated.
+router.route("/update-user").patch(verifyJWT, updateUserDetails); // ? By using patch methode only updated the details which user updated.
 
 // * Update Avatar Image Route
 router
   .route("/update-avatar")
-  .patch(verifyJWT, upload.single("avatar"), updateAvatarImage);
+  .patch(verifyJWT, upload.single("avatar"), updateAvatarImage); // ? Single is used for only single file
 
 // * Update Cover Image Route
 router
