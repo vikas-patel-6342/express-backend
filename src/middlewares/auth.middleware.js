@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 
 // * Creating Middleware to verify the Access and Refresh Token
-export const verifyJWT = asyncHandler((req, res, next) => {
+export const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     const token =
       req.cookies?.accessToken ||
@@ -19,7 +19,7 @@ export const verifyJWT = asyncHandler((req, res, next) => {
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     // ! Remove the Refresh Token and Password from the response
-    const user = User.findById(decodedToken._id).select(
+    const user = await User.findById(decodedToken._id).select(
       "-password -refreshToken"
     );
 
